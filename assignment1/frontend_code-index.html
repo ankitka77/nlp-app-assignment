@@ -1,0 +1,994 @@
+<!--
+================================================================================
+KNOWLEDGE GRAPH APPLICATION - FRONTEND
+================================================================================
+
+
+
+================================================================================
+FEATURES:
+================================================================================
+1. Manual Relationship Entry: Add entities and relationships via form
+2. CSV Upload: Bulk import relationships from CSV files
+3. Graph Queries: Query entities for neighbors, paths, centrality
+4. Interactive Visualization: Visual graph display with zoom/pan
+5. Real-time Updates: Graph updates automatically when data changes
+6. Statistics Panel: Shows node/edge counts and graph metrics
+
+================================================================================
+TECHNOLOGIES USED:
+================================================================================
+- HTML5: Document structure
+- CSS3: Styling with gradients, flexbox, grid
+- JavaScript (ES6): Application logic and API communication
+- vis.js Network: Graph visualization library
+
+================================================================================
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- ================================================================== -->
+    <!-- META TAGS -->
+    <!-- ================================================================== -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knowledge Graph Application - University Academic Network</title>
+    
+    <!-- ================================================================== -->
+    <!-- EXTERNAL LIBRARIES -->
+    <!-- ================================================================== -->
+    <!-- 
+    vis.js Network Library:
+    - Used for interactive graph visualization
+    - Provides physics-based layout, zoom, pan, and node interaction
+    - Documentation: https://visjs.github.io/vis-network/docs/network/
+    -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    
+    <!-- ================================================================== -->
+    <!-- EMBEDDED CSS STYLES -->
+    <!-- ================================================================== -->
+    <style>
+        /* ============================================================== */
+        /* CSS RESET AND BASE STYLES */
+        /* ============================================================== */
+        
+        /* Reset default browser styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box; /* Include padding/border in element dimensions */
+        }
+
+        /* Base body styles with gradient background */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* ============================================================== */
+        /* MAIN CONTAINER */
+        /* ============================================================== */
+        
+        /* Main container with white background and shadow */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        /* ============================================================== */
+        /* HEADER SECTION */
+        /* ============================================================== */
+        
+        /* Header with gradient background matching body */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        /* ============================================================== */
+        /* MAIN CONTENT GRID LAYOUT */
+        /* ============================================================== */
+        
+        /* Two-column grid: control panel (1fr) + visualization (2fr) */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        /* Left panel container for form controls */
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* ============================================================== */
+        /* PANEL STYLES */
+        /* ============================================================== */
+        
+        /* Generic panel style for all control sections */
+        .panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        /* Panel headers */
+        .panel h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        /* ============================================================== */
+        /* FORM ELEMENTS */
+        /* ============================================================== */
+        
+        /* Form group container */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        /* Form labels */
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        /* Text inputs and select dropdowns */
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        /* Focus state for inputs */
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* ============================================================== */
+        /* BUTTON STYLES */
+        /* ============================================================== */
+        
+        /* Base button style */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        /* Primary button (purple gradient) */
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Secondary button (gray) */
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        /* Success button (green) */
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        /* ============================================================== */
+        /* FILE UPLOAD STYLING */
+        /* ============================================================== */
+        
+        /* Hide the actual file input */
+        .file-upload {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-upload input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        /* Custom styled file upload label */
+        .file-upload-label {
+            display: block;
+            padding: 12px;
+            background: #e9ecef;
+            border: 2px dashed #667eea;
+            border-radius: 5px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-upload-label:hover {
+            background: #f0f0f0;
+            border-color: #764ba2;
+        }
+
+        /* ============================================================== */
+        /* VISUALIZATION CONTAINER */
+        /* ============================================================== */
+        
+        /* Container for the graph visualization */
+        .visualization-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            height: 600px;
+            position: relative;
+        }
+
+        /* The actual graph network div */
+        #graph-network {
+            width: 100%;
+            height: 100%;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+        }
+
+        /* ============================================================== */
+        /* STATISTICS PANEL */
+        /* ============================================================== */
+        
+        /* Grid layout for statistics items */
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        /* Individual stat item */
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        /* Large stat value */
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        /* Stat label */
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        /* ============================================================== */
+        /* QUERY RESULTS PANEL */
+        /* ============================================================== */
+        
+        .query-results {
+            background: white;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none; /* Hidden by default */
+        }
+
+        .query-results.show {
+            display: block;
+        }
+
+        .query-results h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        /* Formatted code/JSON output */
+        .query-results pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 0.9em;
+        }
+
+        /* ============================================================== */
+        /* MESSAGE NOTIFICATIONS */
+        /* ============================================================== */
+        
+        .message {
+            padding: 12px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .message.show {
+            display: block;
+        }
+
+        /* Success message (green) */
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        /* Error message (red) */
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* ============================================================== */
+        /* TAB NAVIGATION */
+        /* ============================================================== */
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: #e9ecef;
+            border: none;
+            border-radius: 5px 5px 0 0;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* ============================================================== */
+        /* RESPONSIVE DESIGN */
+        /* ============================================================== */
+        
+        /* Stack columns on smaller screens */
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ================================================================== -->
+    <!-- MAIN APPLICATION CONTAINER -->
+    <!-- ================================================================== -->
+    <div class="container">
+        
+        <!-- ============================================================== -->
+        <!-- HEADER SECTION -->
+        <!-- ============================================================== -->
+        <div class="header">
+            <h1>🧠 Knowledge Graph Application</h1>
+            <p>University Academic Network - Visualize and Query Relationships</p>
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- MAIN CONTENT AREA -->
+        <!-- Two-column layout: Controls (left) + Visualization (right) -->
+        <!-- ============================================================== -->
+        <div class="main-content">
+            
+            <!-- ========================================================== -->
+            <!-- LEFT PANEL: Control Forms -->
+            <!-- ========================================================== -->
+            <div class="left-panel">
+                
+                <!-- ====================================================== -->
+                <!-- ADD RELATIONSHIP PANEL -->
+                <!-- Allows users to add new relationships to the graph -->
+                <!-- ====================================================== -->
+                <div class="panel">
+                    <h2>Add Relationship</h2>
+                    
+                    <!-- Tab navigation for Manual Entry vs CSV Upload -->
+                    <div class="tabs">
+                        <button class="tab active" onclick="switchTab('manual')">Manual Entry</button>
+                        <button class="tab" onclick="switchTab('csv')">CSV Upload</button>
+                    </div>
+
+                    <!-- ================================================== -->
+                    <!-- MANUAL ENTRY TAB -->
+                    <!-- Form for entering individual relationships -->
+                    <!-- ================================================== -->
+                    <div id="manual-tab" class="tab-content active">
+                        <!-- Entity 1 Input: The source entity -->
+                        <div class="form-group">
+                            <label for="entity1">Entity 1:</label>
+                            <input type="text" id="entity1" placeholder="e.g., John Doe">
+                        </div>
+                        
+                        <!-- Relationship Input: The type of relationship -->
+                        <div class="form-group">
+                            <label for="relationship">Relationship:</label>
+                            <input type="text" id="relationship" placeholder="e.g., enrolled_in, advised_by">
+                        </div>
+                        
+                        <!-- Entity 2 Input: The target entity -->
+                        <div class="form-group">
+                            <label for="entity2">Entity 2:</label>
+                            <input type="text" id="entity2" placeholder="e.g., Computer Science">
+                        </div>
+                        
+                        <!-- Submit button -->
+                        <button class="btn btn-primary" onclick="addRelationship()">Add Relationship</button>
+                        
+                        <!-- Message display area -->
+                        <div id="add-message" class="message"></div>
+                    </div>
+
+                    <!-- ================================================== -->
+                    <!-- CSV UPLOAD TAB -->
+                    <!-- Form for bulk uploading relationships via CSV -->
+                    <!-- ================================================== -->
+                    <div id="csv-tab" class="tab-content">
+                        <div class="form-group">
+                            <label>Upload CSV File:</label>
+                            <!-- Custom styled file upload -->
+                            <div class="file-upload">
+                                <input type="file" id="csv-file" accept=".csv" onchange="handleFileSelect(event)">
+                                <label for="csv-file" class="file-upload-label">
+                                    📁 Click to select CSV file
+                                    <br>
+                                    <small>Format: Entity1, Relationship, Entity2</small>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Upload button -->
+                        <button class="btn btn-success" onclick="uploadCSV()">Upload CSV</button>
+                        
+                        <!-- Message display area -->
+                        <div id="upload-message" class="message"></div>
+                    </div>
+                </div>
+
+                <!-- ====================================================== -->
+                <!-- QUERY PANEL -->
+                <!-- Allows users to query the graph for entity information -->
+                <!-- ====================================================== -->
+                <div class="panel">
+                    <h2>Query Graph</h2>
+                    
+                    <!-- Entity name input -->
+                    <div class="form-group">
+                        <label for="query-entity">Entity Name:</label>
+                        <input type="text" id="query-entity" placeholder="e.g., John Doe">
+                    </div>
+                    
+                    <!-- Query type dropdown -->
+                    <div class="form-group">
+                        <label for="query-type">Query Type:</label>
+                        <select id="query-type">
+                            <option value="all">All Information</option>
+                            <option value="neighbors">Neighbors Only</option>
+                            <option value="shortest_path">Shortest Paths</option>
+                            <option value="centrality">Centrality Measures</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Query button -->
+                    <button class="btn btn-primary" onclick="queryGraph()">Query</button>
+                    
+                    <!-- Results display area -->
+                    <div id="query-results" class="query-results"></div>
+                </div>
+
+                <!-- ====================================================== -->
+                <!-- STATISTICS PANEL -->
+                <!-- Displays graph metrics (node count, edge count) -->
+                <!-- ====================================================== -->
+                <div class="panel">
+                    <h2>Graph Statistics</h2>
+                    <div class="stats-panel">
+                        <!-- Node count -->
+                        <div class="stat-item">
+                            <div class="stat-value" id="stat-nodes">0</div>
+                            <div class="stat-label">Nodes</div>
+                        </div>
+                        <!-- Edge count -->
+                        <div class="stat-item">
+                            <div class="stat-value" id="stat-edges">0</div>
+                            <div class="stat-label">Edges</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Refresh button -->
+                    <button class="btn btn-secondary" onclick="refreshGraph()" style="margin-top: 15px;">Refresh Graph</button>
+                </div>
+            </div>
+
+            <!-- ========================================================== -->
+            <!-- VISUALIZATION PANEL -->
+            <!-- Contains the interactive graph visualization -->
+            <!-- ========================================================== -->
+            <div class="panel visualization-container">
+                <h2>Knowledge Graph Visualization</h2>
+                <!-- This div will contain the vis.js network -->
+                <div id="graph-network"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- JAVASCRIPT APPLICATION LOGIC -->
+    <!-- ================================================================== -->
+    <script>
+        // ==================================================================
+        // GLOBAL VARIABLES
+        // ==================================================================
+        
+        // vis.js Network instance
+        let network = null;
+        
+        // vis.js DataSet for nodes (entities)
+        let nodes = null;
+        
+        // vis.js DataSet for edges (relationships)
+        let edges = null;
+
+        // ==================================================================
+        // INITIALIZATION
+        // ==================================================================
+        
+        /**
+         * Initialize the graph visualization.
+         * 
+         * This function:
+         * 1. Gets the container element for the network
+         * 2. Creates empty DataSets for nodes and edges
+         * 3. Configures the network options (appearance, physics, interaction)
+         * 4. Creates the vis.js Network instance
+         * 5. Loads initial graph data from the API
+         */
+        function initVisualization() {
+            // Get the container element
+            const container = document.getElementById('graph-network');
+            
+            // Create DataSets for nodes and edges
+            // DataSets allow dynamic adding/removing of items
+            nodes = new vis.DataSet([]);
+            edges = new vis.DataSet([]);
+            
+            // Combine into data object
+            const data = {
+                nodes: nodes,
+                edges: edges
+            };
+            
+            // Network configuration options
+            const options = {
+                // Node appearance
+                nodes: {
+                    shape: 'box',                // Rectangle shape for nodes
+                    font: {
+                        size: 14,
+                        color: '#333'
+                    },
+                    borderWidth: 2,
+                    shadow: true,                // Add shadow effect
+                    color: {
+                        border: '#667eea',       // Purple border
+                        background: '#ffffff',   // White background
+                        highlight: {
+                            border: '#764ba2',   // Darker purple on hover
+                            background: '#f0f0f0'
+                        }
+                    }
+                },
+                
+                // Edge appearance
+                edges: {
+                    arrows: {
+                        to: {
+                            enabled: true,       // Show arrow at target
+                            scaleFactor: 1.2
+                        }
+                    },
+                    font: {
+                        size: 12,
+                        align: 'middle',         // Label in middle of edge
+                        color: '#666'
+                    },
+                    color: {
+                        color: '#667eea',
+                        highlight: '#764ba2'
+                    },
+                    smooth: {
+                        type: 'curvedCW',        // Curved edges
+                        roundness: 0.2
+                    },
+                    width: 2
+                },
+                
+                // Physics simulation for automatic layout
+                physics: {
+                    enabled: true,
+                    stabilization: {
+                        iterations: 200          // Iterations to stabilize layout
+                    },
+                    barnesHut: {
+                        gravitationalConstant: -2000,
+                        centralGravity: 0.1,
+                        springLength: 200,
+                        springConstant: 0.04,
+                        damping: 0.09
+                    }
+                },
+                
+                // User interaction options
+                interaction: {
+                    hover: true,                 // Enable hover effects
+                    tooltipDelay: 200,           // Delay before showing tooltip
+                    zoomView: true,              // Allow zoom
+                    dragView: true               // Allow pan
+                }
+            };
+            
+            // Create the network
+            network = new vis.Network(container, data, options);
+            
+            // Load initial graph data from API
+            loadGraphData();
+        }
+
+        // ==================================================================
+        // API FUNCTIONS
+        // ==================================================================
+        
+        /**
+         * Load graph data from the backend API.
+         * 
+         * Fetches all nodes and edges from /api/graph_data and updates
+         * the visualization.
+         */
+        async function loadGraphData() {
+            try {
+                // Make GET request to fetch graph data
+                const response = await fetch('/api/graph_data');
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Clear existing data
+                    nodes.clear();
+                    edges.clear();
+                    
+                    // Add new data
+                    nodes.add(data.nodes);
+                    edges.add(data.edges);
+                    
+                    // Update statistics display
+                    document.getElementById('stat-nodes').textContent = data.stats.total_nodes;
+                    document.getElementById('stat-edges').textContent = data.stats.total_edges;
+                }
+            } catch (error) {
+                console.error('Error loading graph data:', error);
+                showMessage('add-message', 'Error loading graph data', 'error');
+            }
+        }
+
+        /**
+         * Add a new relationship to the graph.
+         * 
+         * Reads values from the form inputs, validates them, and sends
+         * a POST request to /api/add_relationship.
+         */
+        async function addRelationship() {
+            // Get input values
+            const entity1 = document.getElementById('entity1').value.trim();
+            const relationship = document.getElementById('relationship').value.trim();
+            const entity2 = document.getElementById('entity2').value.trim();
+            
+            // Validate: all fields required
+            if (!entity1 || !relationship || !entity2) {
+                showMessage('add-message', 'Please fill in all fields', 'error');
+                return;
+            }
+            
+            try {
+                // Send POST request
+                const response = await fetch('/api/add_relationship', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        entity1: entity1,
+                        relationship: relationship,
+                        entity2: entity2
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Show success message
+                    showMessage('add-message', data.message, 'success');
+                    
+                    // Clear form fields
+                    document.getElementById('entity1').value = '';
+                    document.getElementById('relationship').value = '';
+                    document.getElementById('entity2').value = '';
+                    
+                    // Reload graph to show new relationship
+                    loadGraphData();
+                } else {
+                    showMessage('add-message', data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('add-message', 'Error adding relationship: ' + error.message, 'error');
+            }
+        }
+
+        /**
+         * Handle file selection for CSV upload.
+         * 
+         * Updates the label to show the selected filename.
+         * 
+         * @param {Event} event - The file input change event
+         */
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                // Update label to show filename
+                const label = event.target.nextElementSibling;
+                label.innerHTML = `📁 ${file.name}<br><small>Ready to upload</small>`;
+            }
+        }
+
+        /**
+         * Upload a CSV file to add multiple relationships.
+         * 
+         * Sends the selected CSV file to /api/upload_csv.
+         */
+        async function uploadCSV() {
+            const fileInput = document.getElementById('csv-file');
+            const file = fileInput.files[0];
+            
+            // Validate: file required
+            if (!file) {
+                showMessage('upload-message', 'Please select a CSV file', 'error');
+                return;
+            }
+            
+            // Create FormData for file upload
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                // Send POST request with file
+                const response = await fetch('/api/upload_csv', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('upload-message', data.message, 'success');
+                    
+                    // Reset file input and label
+                    fileInput.value = '';
+                    const label = fileInput.nextElementSibling;
+                    label.innerHTML = '📁 Click to select CSV file<br><small>Format: Entity1, Relationship, Entity2</small>';
+                    
+                    // Reload graph to show new relationships
+                    loadGraphData();
+                } else {
+                    showMessage('upload-message', data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('upload-message', 'Error uploading CSV: ' + error.message, 'error');
+            }
+        }
+
+        /**
+         * Query the graph for entity information.
+         * 
+         * Sends a query request to /api/query and displays the results.
+         */
+        async function queryGraph() {
+            const entity = document.getElementById('query-entity').value.trim();
+            const queryType = document.getElementById('query-type').value;
+            
+            // Validate: entity required
+            if (!entity) {
+                showMessage('query-results', 'Please enter an entity name', 'error');
+                return;
+            }
+            
+            try {
+                // Send POST request
+                const response = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        entity: entity,
+                        query_type: queryType
+                    })
+                });
+                
+                const data = await response.json();
+                const resultsDiv = document.getElementById('query-results');
+                
+                if (data.success) {
+                    // Display formatted results
+                    resultsDiv.classList.add('show');
+                    resultsDiv.innerHTML = `
+                        <h3>Query Results for: ${data.entity}</h3>
+                        <pre>${JSON.stringify(data.results, null, 2)}</pre>
+                    `;
+                } else {
+                    // Display error
+                    resultsDiv.classList.add('show');
+                    resultsDiv.innerHTML = `
+                        <h3>Query Error</h3>
+                        <p style="color: red;">${data.message}</p>
+                    `;
+                }
+            } catch (error) {
+                const resultsDiv = document.getElementById('query-results');
+                resultsDiv.classList.add('show');
+                resultsDiv.innerHTML = `
+                    <h3>Query Error</h3>
+                    <p style="color: red;">Error querying graph: ${error.message}</p>
+                `;
+            }
+        }
+
+        // ==================================================================
+        // UI FUNCTIONS
+        // ==================================================================
+        
+        /**
+         * Refresh the graph visualization.
+         * 
+         * Reloads data from the API.
+         */
+        function refreshGraph() {
+            loadGraphData();
+        }
+
+        /**
+         * Switch between Manual Entry and CSV Upload tabs.
+         * 
+         * @param {string} tabName - 'manual' or 'csv'
+         */
+        function switchTab(tabName) {
+            // Update tab buttons - remove active class from all
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+            
+            // Update tab content - hide all
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            if (tabName === 'manual') {
+                document.getElementById('manual-tab').classList.add('active');
+            } else {
+                document.getElementById('csv-tab').classList.add('active');
+            }
+        }
+
+        /**
+         * Show a message notification.
+         * 
+         * @param {string} elementId - ID of the message element
+         * @param {string} message - Message text to display
+         * @param {string} type - 'success' or 'error'
+         */
+        function showMessage(elementId, message, type) {
+            const messageDiv = document.getElementById(elementId);
+            messageDiv.textContent = message;
+            messageDiv.className = `message ${type} show`;
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                messageDiv.classList.remove('show');
+            }, 5000);
+        }
+
+        // ==================================================================
+        // EVENT LISTENERS
+        // ==================================================================
+        
+        /**
+         * Initialize application when DOM is loaded.
+         */
+        window.addEventListener('DOMContentLoaded', () => {
+            // Initialize the graph visualization
+            initVisualization();
+            
+            // Set up auto-refresh every 30 seconds
+            // This keeps the graph in sync if data changes elsewhere
+            setInterval(loadGraphData, 30000);
+        });
+    </script>
+</body>
+</html>
+
